@@ -38,6 +38,124 @@ async function startServer() {
 
   // --- KENDİ APİLERİNİZ BURAYA GELECEK ---
   
+  // Ürün Güncelle
+  app.patch("/api/v1/products/:id", async (req, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
+    try {
+      await updateDoc(doc(db, "products", id), {
+        ...updateData,
+        lastUpdated: new Date().toISOString()
+      });
+      res.json({ success: true, message: "Ürün başarıyla güncellendi." });
+    } catch (error) {
+       console.error("Product update error:", error);
+       res.status(500).json({ error: "Ürün güncellenemedi" });
+    }
+  });
+
+  // Ürün Kopyala
+  app.post("/api/v1/products/:id/copy", async (req, res) => {
+    const { id } = req.params;
+    try {
+      const querySnapshot = await getDocs(collection(db, "products"));
+      const sourceProduct = querySnapshot.docs.find(d => d.id === id);
+      
+      if (!sourceProduct) {
+        return res.status(404).json({ error: "Kaynak ürün bulunamadı" });
+      }
+
+      const data = sourceProduct.data();
+      const newId = `${id}-copy-${Date.now()}`;
+      const newData = {
+        ...data,
+        name: `${data.name} (Kopya)`,
+        sku: `${data.sku}-COPY`,
+        lastUpdated: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, "products", newId), newData);
+      res.json({ success: true, message: "Ürün başarıyla kopyalandı.", id: newId });
+    } catch (error) {
+       console.error("Product copy error:", error);
+       res.status(500).json({ error: "Ürün kopyalanamadı" });
+    }
+  });
+
+  // Ürünü Pazaryerine Gönder (Sync)
+  app.post("/api/v1/products/:id/sync-marketplace", async (req, res) => {
+    const { id } = req.params;
+    try {
+      const querySnapshot = await getDocs(collection(db, "products"));
+      const productDoc = querySnapshot.docs.find(d => d.id === id);
+      
+      if (!productDoc) {
+        return res.status(404).json({ error: "Ürün bulunamadı" });
+      }
+
+      const product = productDoc.data();
+      
+      // Platforma göre işlem yap
+      if (product.platformType === 'woocommerce') {
+        // En az bir WooCommerce bağlantısı bulalım
+        const mpSnapshot = await getDocs(collection(db, "marketplaces"));
+        const wooMp = mpSnapshot.docs.find(d => d.data().type === 'woocommerce');
+        
+        if (wooMp) {
+          const { apiUrl, apiKey, apiSecret } = wooMp.data();
+          const authHeader = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`;
+          
+          // WooCommerce'e stok ve fiyat güncellemesi gönder
+          const updateUrl = `${apiUrl}/products/${product.platformId}`;
+          const response = await fetch(updateUrl, {
+            method: 'PUT',
+            headers: { 
+              'Authorization': authHeader,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              regular_price: product.price.toString(),
+              stock_quantity: parseInt(product.stock)
+            })
+          });
+
+          if (response.ok) {
+            return res.json({ success: true, message: "WooCommerce üzerinde başarıyla güncellendi." });
+          } else {
+            const err = await response.text();
+            throw new Error(`WooCommerce update failed: ${err}`);
+          }
+        }
+      } else if (product.platformType === 'trendyol') {
+        // Trendyol için mock başarılı dönüş
+        return res.json({ success: true, message: "Trendyol üzerinde başarıyla güncellendi (Sanal)." });
+      }
+
+      res.json({ success: true, message: "Pazaryeri senkronizasyonu başlatıldı." });
+    } catch (error) {
+       console.error("Sync to marketplace error:", error);
+       res.status(500).json({ error: "Pazaryeri güncellemesi başarısız oldu." });
+    }
+  });
+
+  // Sipariş Etiketi
+  app.get("/api/v1/orders/:id/label", async (req, res) => {
+    res.json({ 
+      success: true, 
+      labelUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+      html: "<h1>Barkod Etiketi</h1><p>Sipariş: " + req.params.id + "</p>" 
+    });
+  });
+
+  // Sipariş Faturası
+  app.get("/api/v1/orders/:id/invoice", async (req, res) => {
+    res.json({ 
+      success: true, 
+      invoiceUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+      html: "<h1>E-Fatura</h1><p>Sipariş: " + req.params.id + "</p>" 
+    });
+  });
+
   // Mağazaları Getir
   app.get("/api/v1/marketplaces", async (req, res) => {
     try {

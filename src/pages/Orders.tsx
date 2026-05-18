@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { 
   Search, 
   Filter, 
@@ -133,6 +134,34 @@ export const Orders = () => {
     fetchOrders();
   }, []);
 
+  const handlePrintLabel = async (orderId: string) => {
+    toast.promise(
+      fetch(`/api/v1/orders/${orderId}/label`).then(res => res.json()),
+      {
+        loading: 'Etiket hazırlanıyor...',
+        success: (data) => {
+          if (data.labelUrl) window.open(data.labelUrl, '_blank');
+          return "Etiket hazır!";
+        },
+        error: 'Etiket hazırlanamadı.'
+      }
+    );
+  };
+
+  const handleDownloadInvoice = async (orderId: string) => {
+    toast.promise(
+      fetch(`/api/v1/orders/${orderId}/invoice`).then(res => res.json()),
+      {
+        loading: 'Fatura hazırlanıyor...',
+        success: (data) => {
+          if (data.invoiceUrl) window.open(data.invoiceUrl, '_blank');
+          return "Fatura hazır!";
+        },
+        error: 'Fatura hazırlanamadı.'
+      }
+    );
+  };
+
   const filteredOrders = orders.filter(order => 
     order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -256,8 +285,8 @@ export const Orders = () => {
                            </div>
                         </div>
                         <div className="flex justify-end gap-2 mt-6">
-                           <Button variant="outline" size="sm">Fatura İndir</Button>
-                           <Button size="sm">Etiket Yazdır</Button>
+                           <Button variant="outline" size="sm" onClick={() => handleDownloadInvoice(order.id)}>Fatura İndir</Button>
+                           <Button size="sm" onClick={() => handlePrintLabel(order.id)}>Etiket Yazdır</Button>
                         </div>
                       </DialogContent>
                     </Dialog>

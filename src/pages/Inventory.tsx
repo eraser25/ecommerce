@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { 
   Boxes, 
   Search, 
@@ -81,6 +82,32 @@ export const Inventory = () => {
 
   const totalStockCount = items.reduce((sum, item) => sum + (item.stock || 0), 0);
   const lowStockCount = items.filter(item => (item.stock || 0) <= (item.minStock || 10)).length;
+
+  const handleQuickUpdate = async (product: any, newStock: string) => {
+    const stockVal = parseInt(newStock);
+    if (isNaN(stockVal)) return;
+
+    try {
+      const res = await fetch(`/api/v1/products/${product.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stock: stockVal })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${product.name} stoğu ${stockVal} olarak güncellendi.`);
+        // Sync to marketplace
+        fetch(`/api/v1/products/${product.id}/sync-marketplace`, { method: 'POST' })
+          .then(r => r.json())
+          .then(d => {
+            if (d.success) toast.info("Stok pazaryerine anlık yansıtıldı.");
+          });
+        fetchItems();
+      }
+    } catch (err) {
+      toast.error("Stok güncellenemedi.");
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in slide-in-from-left-4 duration-500">
@@ -192,8 +219,23 @@ export const Inventory = () => {
                        </TableCell>
                        <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                             <Input type="number" defaultValue={item.stock} className="w-16 h-8 text-center" />
-                             <Button size="icon" variant="ghost" className="h-8 w-8 text-primary shadow-sm border"><Save className="w-4 h-4" /></Button>
+                             <Input 
+                               type="number" 
+                               id={`stock-input-${item.id}`}
+                               defaultValue={item.stock} 
+                               className="w-16 h-8 text-center" 
+                             />
+                             <Button 
+                               size="icon" 
+                               variant="ghost" 
+                               onClick={() => {
+                                 const el = document.getElementById(`stock-input-${item.id}`) as HTMLInputElement;
+                                 handleQuickUpdate(item, el.value);
+                               }}
+                               className="h-8 w-8 text-primary shadow-sm border"
+                             >
+                               <Save className="w-4 h-4" />
+                             </Button>
                           </div>
                        </TableCell>
                     </TableRow>

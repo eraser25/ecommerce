@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { 
   Package, 
   Plus, 
@@ -15,7 +16,8 @@ import {
   ChevronRight,
   Monitor,
   Store,
-  ChevronLeft
+  ChevronLeft,
+  RefreshCw
 } from 'lucide-react';
 import { 
   Table, 
@@ -94,6 +96,8 @@ export const Products = () => {
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -107,6 +111,7 @@ export const Products = () => {
       }
     } catch (err) {
       console.error("Products fetch error:", err);
+      toast.error("Ürünler yüklenirken hata oluştu.");
     } finally {
       setLoading(false);
     }
@@ -115,6 +120,65 @@ export const Products = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  const handleEdit = (product: any) => {
+    setEditingProduct({ ...product });
+    setIsEditModalOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editingProduct) return;
+    try {
+      const res = await fetch(`/api/v1/products/${editingProduct.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingProduct)
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Ürün başarıyla güncellendi.");
+        setIsEditModalOpen(false);
+        fetchProducts();
+      }
+    } catch (err) {
+      toast.error("Güncelleme başarısız.");
+    }
+  };
+
+  const handleCopy = async (id: string) => {
+    toast.promise(
+      fetch(`/api/v1/products/${id}/copy`, { method: 'POST' }).then(res => res.json()),
+      {
+        loading: 'Ürün kopyalanıyor...',
+        success: (data) => {
+          fetchProducts();
+          return "Ürün kopyalandı.";
+        },
+        error: 'Kopyalama başarısız.'
+      }
+    );
+  };
+
+  const handleSyncMarketplace = async (id: string) => {
+    toast.promise(
+      fetch(`/api/v1/products/${id}/sync-marketplace`, { method: 'POST' }).then(res => res.json()),
+      {
+        loading: 'Pazaryeri senkronize ediliyor...',
+        success: (data) => data.message,
+        error: 'Senkronizasyon başarısız.'
+      }
+    );
+  };
+
+  const handleViewInStore = (product: any) => {
+    if (product.platformType === 'woocommerce' && product.platformId) {
+      // Bu URL normalde WooCommerce URL'ine gitmeli
+      toast.info("Yönlendiriliyorsunuz...");
+      window.open(`https://woocommerce.com/products/${product.platformId}`, '_blank');
+    } else {
+      toast.info("Pazaryeri bağlantısı bulunamadı.");
+    }
+  };
 
   const toggleSelectAll = () => {
     if (selectedProducts.length === products.length) {
@@ -371,9 +435,10 @@ export const Products = () => {
                          } />
                          <DropdownMenuContent align="end">
                             <DropdownMenuGroup>
-                               <DropdownMenuItem><Edit className="w-4 h-4 mr-2" /> Düzenle</DropdownMenuItem>
-                               <DropdownMenuItem><Copy className="w-4 h-4 mr-2" /> Kopyala</DropdownMenuItem>
-                               <DropdownMenuItem><ExternalLink className="w-4 h-4 mr-2" /> Mağazada Gör</DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => handleEdit(product)}><Edit className="w-4 h-4 mr-2" /> Düzenle</DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => handleSyncMarketplace(product.id)}><RefreshCw className="w-4 h-4 mr-2" /> Pazaryerine Gönder</DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => handleCopy(product.id)}><Copy className="w-4 h-4 mr-2" /> Kopyala</DropdownMenuItem>
+                               <DropdownMenuItem onClick={() => handleViewInStore(product)}><ExternalLink className="w-4 h-4 mr-2" /> Mağazada Gör</DropdownMenuItem>
                                <DropdownMenuSeparator />
                                <DropdownMenuItem className="text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Sil</DropdownMenuItem>
                             </DropdownMenuGroup>
@@ -413,7 +478,7 @@ export const Products = () => {
                           <span key={mp} className="w-4 h-4 rounded bg-accent border p-0.5"><Store className="w-full h-full" /></span>
                        ))}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8"><Edit className="w-3 h-3" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(product)}><Edit className="w-3 h-3" /></Button>
                  </div>
                </CardContent>
              </Card>
@@ -429,6 +494,78 @@ export const Products = () => {
             <Button variant="outline" size="icon" disabled><ChevronRight className="w-4 h-4" /></Button>
          </div>
       </div>
+
+      {/* Edit Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Ürün Düzenle</DialogTitle>
+            <DialogDescription>Ürün bilgilerini güncelleyin. Değişiklikler kaydedildikten sonra pazaryerlerine gönderilebilir.</DialogDescription>
+          </DialogHeader>
+          
+          {editingProduct && (
+            <div className="grid gap-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Ürün Adı</Label>
+                  <Input 
+                    value={editingProduct.name} 
+                    onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Kategori Eşleme</Label>
+                  <select 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={editingProduct.category}
+                    onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value})}
+                  >
+                    <option value="Elektronik">Elektronik</option>
+                    <option value="Aksesuar">Aksesuar</option>
+                    <option value="Giyim">Giyim</option>
+                    <option value="Ev & Yaşam">Ev & Yaşam</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Fiyat (₺)</Label>
+                  <Input 
+                    type="number"
+                    value={editingProduct.price} 
+                    onChange={(e) => setEditingProduct({...editingProduct, price: parseFloat(e.target.value)})} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Stok</Label>
+                  <Input 
+                    type="number"
+                    value={editingProduct.stock} 
+                    onChange={(e) => setEditingProduct({...editingProduct, stock: parseInt(e.target.value)})} 
+                  />
+                </div>
+                <div className="space-y-2">
+                   <Label>SKU</Label>
+                   <Input 
+                     value={editingProduct.sku} 
+                     onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})} 
+                   />
+                </div>
+                <div className="space-y-2">
+                   <Label>Marka</Label>
+                   <Input 
+                     value={editingProduct.brand} 
+                     onChange={(e) => setEditingProduct({...editingProduct, brand: e.target.value})} 
+                   />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Vazgeç</Button>
+            <Button onClick={saveEdit}>Güncelle ve Kaydet</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
