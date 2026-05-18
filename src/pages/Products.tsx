@@ -509,7 +509,7 @@ export const Products = () => {
                 <div className="space-y-2">
                   <Label>Ürün Adı</Label>
                   <Input 
-                    value={editingProduct.name} 
+                    value={editingProduct.name || ""} 
                     onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})} 
                   />
                 </div>
@@ -517,9 +517,10 @@ export const Products = () => {
                   <Label>Kategori Eşleme</Label>
                   <select 
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={editingProduct.category}
+                    value={editingProduct.category || ""}
                     onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value})}
                   >
+                    <option value="">Seçiniz...</option>
                     <option value="Elektronik">Elektronik</option>
                     <option value="Aksesuar">Aksesuar</option>
                     <option value="Giyim">Giyim</option>
@@ -530,29 +531,29 @@ export const Products = () => {
                   <Label>Fiyat (₺)</Label>
                   <Input 
                     type="number"
-                    value={editingProduct.price} 
-                    onChange={(e) => setEditingProduct({...editingProduct, price: parseFloat(e.target.value)})} 
+                    value={editingProduct.price ?? 0} 
+                    onChange={(e) => setEditingProduct({...editingProduct, price: parseFloat(e.target.value) || 0})} 
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Stok</Label>
                   <Input 
                     type="number"
-                    value={editingProduct.stock} 
-                    onChange={(e) => setEditingProduct({...editingProduct, stock: parseInt(e.target.value)})} 
+                    value={editingProduct.stock ?? 0} 
+                    onChange={(e) => setEditingProduct({...editingProduct, stock: parseInt(e.target.value) || 0})} 
                   />
                 </div>
                 <div className="space-y-2">
                    <Label>SKU</Label>
                    <Input 
-                     value={editingProduct.sku} 
+                     value={editingProduct.sku || ""} 
                      onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})} 
                    />
                 </div>
                 <div className="space-y-2">
                    <Label>Marka</Label>
                    <Input 
-                     value={editingProduct.brand} 
+                     value={editingProduct.brand || ""} 
                      onChange={(e) => setEditingProduct({...editingProduct, brand: e.target.value})} 
                    />
                 </div>

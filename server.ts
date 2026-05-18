@@ -106,7 +106,14 @@ async function startServer() {
           const authHeader = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`;
           
           // WooCommerce'e stok ve fiyat güncellemesi gönder
-          const updateUrl = `${apiUrl}/products/${product.platformId}`;
+          let updateUrl = `${apiUrl}/products/${product.platformId}`;
+          const parentId = product.parentId?.toString();
+          if (parentId && parentId !== "0" && parentId !== "null" && parentId !== "") {
+            updateUrl = `${apiUrl}/products/${parentId}/variations/${product.platformId}`;
+          }
+          
+          console.log(`Syncing to WooCommerce: ${updateUrl}`);
+          
           const response = await fetch(updateUrl, {
             method: 'PUT',
             headers: { 
@@ -248,6 +255,7 @@ async function startServer() {
               brand: 'WooCommerce',
               marketplaces: ['woocommerce'],
               platformId: p.id.toString(),
+              parentId: p.parent_id?.toString() || null,
               platformType: 'woocommerce',
               lastUpdated: new Date().toISOString()
             };

@@ -62,12 +62,20 @@ export const Inventory = () => {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [stockValues, setStockValues] = useState<Record<string, number>>({});
+
   const fetchItems = async () => {
     try {
       const res = await fetch('/api/v1/products');
       const data = await res.json();
       if (data.success) {
         setItems(data.products);
+        // Initialize stock values for controlled inputs
+        const initialStock: Record<string, number> = {};
+        data.products.forEach((p: any) => {
+          initialStock[p.id] = p.stock || 0;
+        });
+        setStockValues(initialStock);
       }
     } catch (err) {
       console.error("Inventory fetch error:", err);
@@ -83,9 +91,9 @@ export const Inventory = () => {
   const totalStockCount = items.reduce((sum, item) => sum + (item.stock || 0), 0);
   const lowStockCount = items.filter(item => (item.stock || 0) <= (item.minStock || 10)).length;
 
-  const handleQuickUpdate = async (product: any, newStock: string) => {
-    const stockVal = parseInt(newStock);
-    if (isNaN(stockVal)) return;
+  const handleQuickUpdate = async (product: any) => {
+    const stockVal = stockValues[product.id];
+    if (stockVal === undefined) return;
 
     try {
       const res = await fetch(`/api/v1/products/${product.id}`, {
@@ -102,7 +110,10 @@ export const Inventory = () => {
           .then(d => {
             if (d.success) toast.info("Stok pazaryerine anlık yansıtıldı.");
           });
-        fetchItems();
+        // We don't need to full fetchItems if we trust the local update, 
+        // but it's safer for UI consistency.
+        // For now, let's just update the specific item in state to avoid flash
+        setItems(prev => prev.map(item => item.id === product.id ? { ...item, stock: stockVal } : item));
       }
     } catch (err) {
       toast.error("Stok güncellenemedi.");
@@ -217,21 +228,18 @@ export const Inventory = () => {
                              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-none">Yeterli</Badge>
                           )}
                        </TableCell>
-                       <TableCell className="text-right">
+                        <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                              <Input 
                                type="number" 
-                               id={`stock-input-${item.id}`}
-                               defaultValue={item.stock} 
+                               value={stockValues[item.id] ?? 0}
+                               onChange={(e) => setStockValues({ ...stockValues, [item.id]: parseInt(e.target.value) || 0 })}
                                className="w-16 h-8 text-center" 
                              />
                              <Button 
                                size="icon" 
                                variant="ghost" 
-                               onClick={() => {
-                                 const el = document.getElementById(`stock-input-${item.id}`) as HTMLInputElement;
-                                 handleQuickUpdate(item, el.value);
-                               }}
+                               onClick={() => handleQuickUpdate(item)}
                                className="h-8 w-8 text-primary shadow-sm border"
                              >
                                <Save className="w-4 h-4" />
