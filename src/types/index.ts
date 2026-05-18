@@ -1,3 +1,8 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // API Response Types
 export interface ApiResponse<T> {
   success: boolean;
@@ -15,23 +20,25 @@ export interface Product {
   price: number;
   stock: number;
   status: 'active' | 'passive';
-  image?: string;
+  image: string;
   marketplaces: string[];
-  brand?: string;
+  brand: string;
   platformId?: string;
-  platformType?: 'woocommerce' | 'trendyol';
+  platformType?: string;
   parentId?: string | null;
   lastUpdated?: string;
 }
 
-export interface UpdateProductPayload {
-  name?: string;
-  sku?: string;
-  category?: string;
-  price?: number;
-  stock?: number;
+export interface ProductInput {
+  name: string;
+  sku: string;
+  category: string;
+  price: number;
+  stock: number;
   status?: 'active' | 'passive';
+  image?: string;
   brand?: string;
+  marketplaces?: string[];
 }
 
 // Order Types
@@ -48,7 +55,7 @@ export interface Order {
   shippingAddress?: string;
   phone?: string;
   platformId?: string;
-  platformType?: 'woocommerce' | 'trendyol';
+  platformType?: string;
 }
 
 export interface OrderItem {
@@ -60,39 +67,43 @@ export interface OrderItem {
 // Marketplace Types
 export interface Marketplace {
   id: string;
+  type: 'woocommerce' | 'trendyol' | 'other';
   name: string;
-  type: 'woocommerce' | 'trendyol';
-  status: 'connected' | 'disconnected';
-  isActive: boolean;
+  status: 'connected' | 'disconnected' | 'error';
   lastSync?: string;
-  ordersToday: number;
-  productsSynced: number;
+  isActive: boolean;
+  ordersToday?: number;
+  productsSynced?: number;
   apiUrl?: string;
   apiKey?: string;
   apiSecret?: string;
   supplierId?: string;
 }
 
-// API Status
-export interface ApiStatus {
-  status: 'running' | 'offline';
+// Status Types
+export interface ServerStatus {
+  status: 'running' | 'error';
   message: string;
-  error?: boolean;
   time?: string;
+  error?: boolean;
 }
 
-// Label & Invoice
-export interface LabelResponse extends ApiResponse<null> {
-  labelUrl?: string;
-  html?: string;
+// Hook Response Types
+export interface UseFetchResponse<T> {
+  data: T | null;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
 }
 
-export interface InvoiceResponse extends ApiResponse<null> {
-  invoiceUrl?: string;
-  html?: string;
+export interface UseFetchMutationResponse<T, R> {
+  mutate: (data: T) => Promise<R>;
+  loading: boolean;
+  error: Error | null;
 }
 
-// Sync Response
-export interface SyncResponse extends ApiResponse<null> {
-  count?: number;
+// Validation Error
+export interface ValidationError {
+  field: string;
+  message: string;
 }
