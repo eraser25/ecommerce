@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Store, 
@@ -72,41 +72,40 @@ const mockMarketplaces = [
 import { toast, Toaster } from 'sonner';
 
 export const Marketplaces = () => {
-  const [marketplaces, setMarketplaces] = useState([
-    {
-      id: '1',
-      type: 'trendyol',
-      name: 'Trendyol Mağazam',
-      status: 'connected',
-      lastSync: '2024-04-29 11:20',
-      isActive: true,
-      ordersToday: 24,
-      productsSynced: 1240
-    },
-    {
-      id: '2',
-      type: 'woocommerce',
-      name: 'Kendi Sitem (Woo)',
-      status: 'disconnected',
-      lastSync: '2024-04-28 14:15',
-      isActive: true,
-      ordersToday: 8,
-      productsSynced: 850
-    },
-  ]);
+  const [marketplaces, setMarketplaces] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedMp, setSelectedMp] = useState<any>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [config, setConfig] = useState({ url: '', key: '', secret: '', supplierId: '' });
 
+  const fetchMarketplaces = async () => {
+    try {
+      const response = await fetch('/api/v1/marketplaces');
+      const data = await response.json();
+      if (data.success) {
+        setMarketplaces(data.marketplaces);
+      }
+    } catch (err) {
+      console.error("Fetch error:", err);
+      toast.error("Mağazalar yüklenemedi");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMarketplaces();
+  }, []);
+
   const openSettings = (mp: any) => {
     setSelectedMp(mp);
     setConfig({
-      url: '',
-      key: '',
-      secret: '',
-      supplierId: ''
+      url: mp.apiUrl || '',
+      key: mp.apiKey || '',
+      secret: mp.apiSecret || '',
+      supplierId: mp.supplierId || ''
     });
     setIsSettingsOpen(true);
   };
@@ -118,6 +117,7 @@ export const Marketplaces = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          name: selectedMp?.name,
           apiUrl: config.url,
           apiKey: config.key,
           apiSecret: config.secret,
@@ -127,28 +127,7 @@ export const Marketplaces = () => {
       const data = await response.json();
       
       if (data.success) {
-        setMarketplaces(prev => {
-          const exists = prev.find(m => m.id === selectedMp?.id || (m.type === selectedMp?.type && selectedMp?.status === 'new'));
-          if (exists) {
-            return prev.map(m => m.id === exists.id ? { 
-              ...m, 
-              status: 'connected', 
-              lastSync: new Date().toLocaleString('tr-TR', { hour12: false }).replace(',', ''),
-              productsSynced: data.count || m.productsSynced
-            } : m);
-          } else {
-            return [...prev, {
-              id: Math.random().toString(36).substr(2, 9),
-              type: selectedMp.type,
-              name: selectedMp.name,
-              status: 'connected',
-              lastSync: new Date().toLocaleString('tr-TR', { hour12: false }).replace(',', ''),
-              isActive: true,
-              ordersToday: 0,
-              productsSynced: data.count || 150
-            }];
-          }
-        });
+        await fetchMarketplaces();
         toast.success("Başarılı", { description: data.message });
         setIsSettingsOpen(false);
       } else {
@@ -166,7 +145,7 @@ export const Marketplaces = () => {
     toast.promise(
       new Promise(async (resolve, reject) => {
         try {
-          const response = await fetch(`/api/v1/${mp.type}/disconnect`, { method: 'DELETE' });
+          const response = await fetch(`/api/v1/${mp.type}/disconnect?id=${mp.id}`, { method: 'DELETE' });
           const data = await response.json();
           if (data.success) {
             setMarketplaces(prev => prev.filter(m => m.id !== mp.id));

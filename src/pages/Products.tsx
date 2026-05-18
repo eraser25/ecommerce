@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Package, 
   Plus, 
@@ -94,12 +94,33 @@ export const Products = () => {
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/v1/products');
+      const data = await res.json();
+      if (data.success) {
+        setProducts(data.products);
+      }
+    } catch (err) {
+      console.error("Products fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   const toggleSelectAll = () => {
-    if (selectedProducts.length === mockProducts.length) {
+    if (selectedProducts.length === products.length) {
       setSelectedProducts([]);
     } else {
-      setSelectedProducts(mockProducts.map(p => p.id));
+      setSelectedProducts(products.map(p => p.id));
     }
   };
 
@@ -279,7 +300,7 @@ export const Products = () => {
               <TableHeader className="bg-[#f8fafc]">
                 <TableRow className="border-[#e2e8f0]">
                   <TableHead className="w-12 px-5">
-                    <Checkbox checked={selectedProducts.length === mockProducts.length} onCheckedChange={toggleSelectAll} />
+                    <Checkbox checked={products.length > 0 && selectedProducts.length === products.length} onCheckedChange={toggleSelectAll} />
                   </TableHead>
                   <TableHead className="text-[11px] font-bold text-[#64748b] uppercase px-5">Ürün</TableHead>
                   <TableHead className="text-[11px] font-bold text-[#64748b] uppercase px-5">SKU</TableHead>
@@ -291,7 +312,13 @@ export const Products = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockProducts.map((product) => (
+                {products.length === 0 && !loading ? (
+                   <TableRow>
+                     <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                        Henüz senkronize edilmiş ürün bulunamadı. Lütfen "Mağaza Yönetimi" sayfasından mağazanızı bağlayın.
+                     </TableCell>
+                   </TableRow>
+                ) : products.map((product) => (
                   <TableRow key={product.id} className="border-[#e2e8f0] hover:bg-slate-50 transition-colors">
                     <TableCell className="px-5">
                       <Checkbox 
@@ -361,7 +388,7 @@ export const Products = () => {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-           {mockProducts.map((product) => (
+           {products.map((product) => (
              <Card key={product.id} className="overflow-hidden group relative">
                <div className="absolute top-2 left-2 z-10 transition-opacity">
                  <Checkbox 
@@ -395,7 +422,7 @@ export const Products = () => {
       )}
 
       <div className="flex items-center justify-between">
-         <p className="text-xs text-muted-foreground">Toplam {mockProducts.length} üründen 1-{mockProducts.length} arası gösteriliyor.</p>
+         <p className="text-xs text-muted-foreground">Toplam {products.length} üründen 1-{products.length} arası gösteriliyor.</p>
          <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" disabled><ChevronLeft className="w-4 h-4" /></Button>
             <Button variant="outline" size="sm">1</Button>

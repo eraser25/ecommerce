@@ -111,6 +111,32 @@ const MarketplaceBadge = ({ marketplace }: { marketplace: string }) => {
 
 export const Orders = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/v1/orders');
+      const data = await res.json();
+      if (data.success) {
+        setOrders(data.orders);
+      }
+    } catch (err) {
+      console.error("Orders fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const filteredOrders = orders.filter(order => 
+    order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -120,11 +146,11 @@ export const Orders = () => {
           <p className="text-sm text-[#64748b]">Tüm pazaryerlerinden gelen siparişleri buradan yönetebilirsiniz.</p>
         </div>
         <div className="flex items-center gap-2">
-           <Button variant="outline" size="sm" className="border-[#e2e8f0] text-[#64748b]">
-             <Download className="w-4 h-4 mr-2" /> Dışa Aktar
+           <Button variant="outline" size="sm" onClick={fetchOrders} className="border-[#e2e8f0] text-[#64748b]">
+             <Clock className="w-4 h-4 mr-2" /> Yenile
            </Button>
            <Button variant="outline" size="sm" className="border-[#e2e8f0] text-[#64748b]">
-             <Printer className="w-4 h-4 mr-2" /> Yazdır
+             <Download className="w-4 h-4 mr-2" /> Dışa Aktar
            </Button>
         </div>
       </div>
@@ -145,12 +171,6 @@ export const Orders = () => {
                <Button variant="outline" size="sm" className="h-9 border-[#e2e8f0] text-[#64748b]">
                  <Filter className="w-4 h-4 mr-2" /> Filtrele
                </Button>
-               <select className="h-9 rounded-md border border-[#e2e8f0] bg-[#f8fafc] px-3 py-1 text-sm text-[#64748b] focus:outline-none">
-                 <option>Tüm Mağazalar</option>
-                 <option>Trendyol</option>
-                 <option>WooCommerce</option>
-                 <option>Hepsiburada</option>
-               </select>
             </div>
           </div>
         </CardHeader>
@@ -168,14 +188,18 @@ export const Orders = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((order) => (
+              {filteredOrders.length === 0 && !loading ? (
+                <TableRow>
+                   <TableCell colSpan={7} className="text-center py-10 text-muted-foreground italic">Sipariş bulunamadı.</TableCell>
+                </TableRow>
+              ) : filteredOrders.map((order) => (
                 <TableRow key={order.id} className="border-[#e2e8f0] hover:bg-slate-50 transition-colors">
                   <TableCell className="font-bold text-[13px] px-5">{order.orderNumber}</TableCell>
                   <TableCell className="text-[13px] px-5 font-medium">{order.customerName}</TableCell>
                   <TableCell className="px-5">
                     <MarketplaceBadge marketplace={order.marketplace} />
                   </TableCell>
-                  <TableCell className="text-[13px] font-bold px-5">₺{order.totalAmount.toLocaleString()}</TableCell>
+                  <TableCell className="text-[13px] font-bold px-5">₺{order.totalAmount?.toLocaleString()}</TableCell>
                   <TableCell className="px-5">
                     <StatusBadge status={order.status} />
                   </TableCell>
@@ -212,43 +236,31 @@ export const Orders = () => {
                              </div>
                              <div>
                                <label className="text-xs font-semibold text-muted-foreground uppercase">Ödeme Durumu</label>
-                               <p className="text-sm font-medium text-emerald-600">Ödendi</p>
+                               <p className={cn("text-sm font-medium", order.paymentStatus === 'paid' ? "text-emerald-600" : "text-amber-600")}>
+                                 {order.paymentStatus === 'paid' ? 'Ödendi' : 'Ödeme Bekliyor'}
+                               </p>
                              </div>
                            </div>
                         </div>
                         <div className="mt-6">
                            <label className="text-xs font-semibold text-muted-foreground uppercase block mb-2">Ürünler</label>
                            <div className="border rounded-lg overflow-hidden">
-                             {order.items.map((item, idx) => (
+                             {order.items?.map((item: any, idx: number) => (
                                <div key={idx} className="flex items-center justify-between p-3 bg-accent/20 border-b last:border-0">
                                  <div>
                                    <p className="text-sm font-medium">{item.name}</p>
                                    <p className="text-xs text-muted-foreground">Adet: {item.quantity}</p>
                                  </div>
-                                 <p className="text-sm font-semibold">₺{order.totalAmount}</p>
                                </div>
                              ))}
                            </div>
                         </div>
                         <div className="flex justify-end gap-2 mt-6">
-                          <Button variant="outline" size="sm">Fatura İndir</Button>
-                          <Button size="sm">Etiket Yazdır</Button>
+                           <Button variant="outline" size="sm">Fatura İndir</Button>
+                           <Button size="sm">Etiket Yazdır</Button>
                         </div>
                       </DialogContent>
                     </Dialog>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger render={
-                        <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button>
-                      } />
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem>Durumu Değiştir</DropdownMenuItem>
-                          <DropdownMenuItem>Kargo Takip No Gir</DropdownMenuItem>
-                          <DropdownMenuItem>Not Ekle</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">Siparişi İptal Et</DropdownMenuItem>
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}

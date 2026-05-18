@@ -79,6 +79,9 @@ import {
 
 export const Dashboard = () => {
   const [apiStatus, setApiStatus] = useState<any>(null);
+  const [marketplaces, setMarketplaces] = useState<any[]>([]);
+  const [totalDbProducts, setTotalDbProducts] = useState(0);
+  const [orders, setOrders] = useState<any[]>([]);
 
   useEffect(() => {
     const checkStatus = () => {
@@ -93,11 +96,56 @@ export const Dashboard = () => {
           setApiStatus({ message: 'Sunucuya Bağlanılamıyor', error: true });
         });
     };
+
+    const fetchMps = () => {
+      fetch('/api/v1/marketplaces')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setMarketplaces(data.marketplaces);
+          }
+        })
+        .catch(err => console.error("Marketplace fetch error:", err));
+    };
+
+    const fetchProductCount = () => {
+      fetch('/api/v1/products')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setTotalDbProducts(data.products.length);
+          }
+        })
+        .catch(err => console.error("Product count fetch error:", err));
+    };
     
+    const fetchOrders = () => {
+      fetch('/api/v1/orders')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setOrders(data.orders);
+          }
+        })
+        .catch(err => console.error("Orders fetch error:", err));
+    };
+
     checkStatus();
-    const interval = setInterval(checkStatus, 30000); // 30 saniyede bir kontrol et
+    fetchMps();
+    fetchOrders();
+    fetchProductCount();
+    const interval = setInterval(() => {
+      checkStatus();
+      fetchMps();
+      fetchOrders();
+      fetchProductCount();
+    }, 30000); // 30 saniyede bir kontrol et
     return () => clearInterval(interval);
   }, []);
+
+  const totalOrdersToday = marketplaces.reduce((sum, mp) => sum + (mp.ordersToday || 0), 0);
+  const totalProducts = marketplaces.reduce((sum, mp) => sum + (mp.productsSynced || 0), 0);
+  const totalSales = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -127,33 +175,33 @@ export const Dashboard = () => {
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
         <StatCard 
           title="Toplam Satış" 
-          value="₺142.850,00" 
+          value={totalSales > 0 ? `₺${totalSales.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : "₺0,00"} 
           icon={DollarSign} 
-          description="geçen aya göre"
+          description="tüm mağazalar"
           trend="up"
           trendValue="12.5%"
         />
         <StatCard 
-          title="Bekleyen Sipariş" 
-          value="42" 
+          title="Bugünkü Sipariş" 
+          value={totalOrdersToday.toString()} 
           icon={ShoppingCart} 
-          description="6 tanesi gecikti"
+          description="tüm mağazalar"
           trend="up"
-          trendValue="5"
+          trendValue={totalOrdersToday > 0 ? "Aktif" : "0"}
         />
         <StatCard 
-          title="Kritik Stok" 
-          value="8 Ürün" 
-          icon={AlertTriangle} 
-          description="Stok bitmek üzere"
-          trend="down"
-          trendValue="2"
+          title="Senkronize Ürün" 
+          value={totalDbProducts > 0 ? totalDbProducts.toString() : totalProducts.toString()} 
+          icon={Package} 
+          description="Envanter büyüklüğü"
+          trend="up"
+          trendValue="Normal"
         />
         <StatCard 
           title="Mağaza Sağlığı" 
-          value="98%" 
+          value={marketplaces.length > 0 ? "98%" : "0%"} 
           icon={TrendingUp} 
-          description="Mükemmel"
+          description={marketplaces.length > 0 ? "Mükemmel" : "Bağlantı Yok"}
           trend="up"
           trendValue="1.2%"
         />
@@ -180,26 +228,26 @@ export const Dashboard = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {[
-                    { id: '#ORD-9921', customer: 'Mert Altınay', mp: 'Trendyol', amount: '₺1.250,00', status: 'Hazırlanıyor', statusColor: 'bg-[#dcfce7] text-[#15803d]' },
-                    { id: '#ORD-9920', customer: 'Selin Yılmaz', mp: 'WooCommerce', amount: '₺420,50', status: 'Ödeme Bekliyor', statusColor: 'bg-[#fef9c3] text-[#854d0e]' },
-                    { id: '#ORD-9919', customer: 'Caner Demir', mp: 'Trendyol', amount: '₺2.100,00', status: 'Kargoya Hazır', statusColor: 'bg-[#dcfce7] text-[#15803d]' },
-                    { id: '#ORD-9918', customer: 'Ayşe Kara', mp: 'WooCommerce', amount: '₺850,00', status: 'Tamamlandı', statusColor: 'bg-[#dcfce7] text-[#15803d]' },
-                  ].map((order, i) => (
-                    <TableRow key={i} className="border-[#e2e8f0] hover:bg-slate-50 transition-colors">
-                      <TableCell className="text-[13px] font-medium px-5">{order.id}</TableCell>
-                      <TableCell className="text-[13px] px-5 font-medium">{order.customer}</TableCell>
+                  {orders.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-4 text-xs text-muted-foreground italic">Sipariş bulunamadı.</TableCell></TableRow>
+                  ) : orders.slice(0, 5).map((order, i) => (
+                    <TableRow key={order.id || i} className="border-[#e2e8f0] hover:bg-slate-50 transition-colors">
+                      <TableCell className="text-[13px] font-medium px-5">{order.orderNumber}</TableCell>
+                      <TableCell className="text-[13px] px-5 font-medium">{order.customerName}</TableCell>
                       <TableCell className="px-5">
                          <span className={cn(
                            "text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider",
-                           order.mp === 'Trendyol' ? "text-[#f27a1a] border-[#f27a1a] bg-[#f27a1a]/5" : "text-[#96588a] border-[#96588a] bg-[#96588a]/5"
+                           order.marketplace === 'Trendyol' ? "text-[#f27a1a] border-[#f27a1a] bg-[#f27a1a]/5" : "text-[#96588a] border-[#96588a] bg-[#96588a]/5"
                          )}>
-                           {order.mp}
+                           {order.marketplace}
                          </span>
                       </TableCell>
-                      <TableCell className="text-[13px] font-bold px-5">{order.amount}</TableCell>
+                      <TableCell className="text-[13px] font-bold px-5">₺{order.totalAmount?.toLocaleString()}</TableCell>
                       <TableCell className="px-5">
-                        <span className={cn("px-2 py-1 rounded-md font-bold text-[11px]", order.statusColor)}>
+                        <span className={cn(
+                          "px-2 py-1 rounded-md font-bold text-[11px]",
+                          order.status === 'delivered' ? "bg-emerald-100 text-emerald-700" : (order.status === 'pending' ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700")
+                        )}>
                           {order.status}
                         </span>
                       </TableCell>
@@ -216,21 +264,23 @@ export const Dashboard = () => {
             <CardTitle className="text-[15px] font-bold text-[#0f172a]">Mağaza Durumları</CardTitle>
           </CardHeader>
           <CardContent className="p-5 flex-1 space-y-5">
-             <div className="flex justify-between items-center">
-                <div>
-                   <div className="text-[13px] font-bold text-[#0f172a]">Trendyol - Ana Mağaza</div>
-                   <div className="text-[11px] text-[#64748b] font-medium">Son Senk: 2 dk önce</div>
+            {marketplaces.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Bağlı mağaza bulunamadı.</p>
+            ) : (
+              marketplaces.map((mp, i) => (
+                <div key={mp.id || i} className="flex justify-between items-center">
+                  <div>
+                    <div className="text-[13px] font-bold text-[#0f172a]">{mp.name}</div>
+                    <div className="text-[11px] text-[#64748b] font-medium">Son Senk: {mp.lastSync ? new Date(mp.lastSync).toLocaleTimeString() : 'Hiç'}</div>
+                  </div>
+                  <div className={cn(
+                    "w-2.5 h-2.5 rounded-full shadow-[0_0_0_3px_rgba(16,185,129,0.1)]",
+                    mp.status === 'connected' ? "bg-[#10b981]" : "bg-rose-500"
+                  )}></div>
                 </div>
-                <div className="w-2.5 h-2.5 rounded-full bg-[#10b981] shadow-[0_0_0_3px_rgba(16,185,129,0.1)]"></div>
-             </div>
-             <div className="flex justify-between items-center">
-                <div>
-                   <div className="text-[13px] font-bold text-[#0f172a]">WooCommerce WP</div>
-                   <div className="text-[11px] text-[#64748b] font-medium">Son Senk: 5 dk önce</div>
-                </div>
-                <div className="w-2.5 h-2.5 rounded-full bg-[#10b981] shadow-[0_0_0_3px_rgba(16,185,129,0.1)]"></div>
-             </div>
-             <div className="h-px bg-[#e2e8f0] my-2"></div>
+              ))
+            )}
+            <div className="h-px bg-[#e2e8f0] my-2"></div>
              <div>
                 <div className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider mb-4">En Çok Satanlar</div>
                 <div className="space-y-4">

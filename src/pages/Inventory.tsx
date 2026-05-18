@@ -58,6 +58,30 @@ const inventoryItems = [
 ];
 
 export const Inventory = () => {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchItems = async () => {
+    try {
+      const res = await fetch('/api/v1/products');
+      const data = await res.json();
+      if (data.success) {
+        setItems(data.products);
+      }
+    } catch (err) {
+      console.error("Inventory fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const totalStockCount = items.reduce((sum, item) => sum + (item.stock || 0), 0);
+  const lowStockCount = items.filter(item => (item.stock || 0) <= (item.minStock || 10)).length;
+
   return (
     <div className="space-y-6 animate-in slide-in-from-left-4 duration-500">
       <div>
@@ -69,37 +93,37 @@ export const Inventory = () => {
          <Card className="bg-primary/5 border-primary/20">
             <CardHeader className="pb-2">
                <CardTitle className="text-sm font-medium flex items-center justify-between">
-                 Toplam Ürün Adedi
+                 Toplam Stok Adedi
                  <Package className="w-4 h-4 text-primary" />
                </CardTitle>
             </CardHeader>
             <CardContent>
-               <div className="text-2xl font-bold">2,450</div>
-               <p className="text-xs text-muted-foreground mt-1">Geçen aya göre +120 yeni SKU</p>
+               <div className="text-2xl font-bold">{totalStockCount.toLocaleString()}</div>
+               <p className="text-xs text-muted-foreground mt-1">Sistemdeki toplam fiziksel adet</p>
             </CardContent>
          </Card>
          <Card className="bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/30">
             <CardHeader className="pb-2">
                <CardTitle className="text-sm font-medium flex items-center justify-between text-amber-700 dark:text-amber-400">
-                 Düşük Stok Uyarısı
+                 Kritik Stok Uyarıları
                  <AlertTriangle className="w-4 h-4" />
                </CardTitle>
             </CardHeader>
             <CardContent>
-               <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">18</div>
-               <p className="text-xs text-amber-600/80 dark:text-amber-400/60 mt-1">Acil tedarik bekleyen ürün</p>
+               <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{lowStockCount}</div>
+               <p className="text-xs text-amber-600/80 dark:text-amber-400/60 mt-1">Eşik değerin altındaki ürünler</p>
             </CardContent>
          </Card>
          <Card className="bg-emerald-50 border-emerald-200 dark:bg-emerald-900/10 dark:border-emerald-900/30">
             <CardHeader className="pb-2">
                <CardTitle className="text-sm font-medium flex items-center justify-between text-emerald-700 dark:text-emerald-400">
-                 Senkronizasyon Başarısı
+                 Aktif Senkronizasyon
                  <RefreshCw className="w-4 h-4" />
                </CardTitle>
             </CardHeader>
             <CardContent>
-               <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">%99.8</div>
-               <p className="text-xs text-emerald-600/80 dark:text-emerald-400/60 mt-1">Son 24 saatteki hata oranı %0.2</p>
+               <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">Aktif</div>
+               <p className="text-xs text-emerald-600/80 dark:text-emerald-400/60 mt-1">Tüm kanallar anlık güncelleniyor</p>
             </CardContent>
          </Card>
       </div>
@@ -113,8 +137,8 @@ export const Inventory = () => {
               </div>
               <div className="flex items-center gap-2">
                  <Button variant="outline" size="sm"><History className="w-4 h-4 mr-2" /> Stok Geçmişi</Button>
-                 <Button variant="outline" size="sm" className="text-primary border-primary/20 bg-primary/5 hover:bg-primary/10">
-                   <RefreshCw className="w-4 h-4 mr-2" /> Tümünü Senkronize Et
+                 <Button variant="outline" size="sm" onClick={fetchItems} className="text-primary border-primary/20 bg-primary/5 hover:bg-primary/10">
+                   <RefreshCw className="w-4 h-4 mr-2" /> Yenile
                  </Button>
               </div>
            </div>
@@ -126,38 +150,41 @@ export const Inventory = () => {
                     <TableHead>Ürün Bilgisi</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead>Mevcut Stok</TableHead>
-                    <TableHead>Marketplace Stokları</TableHead>
+                    <TableHead>Platform</TableHead>
                     <TableHead>Durum</TableHead>
                     <TableHead className="text-right">Hızlı Güncelle</TableHead>
                  </TableRow>
               </TableHeader>
               <TableBody>
-                 {inventoryItems.map((item) => (
+                 {items.length === 0 && !loading ? (
+                    <TableRow>
+                       <TableCell colSpan={6} className="text-center py-10 text-muted-foreground italic">Veri bulunamadı.</TableCell>
+                    </TableRow>
+                 ) : items.map((item) => (
                     <TableRow key={item.id}>
                        <TableCell className="font-medium">{item.name}</TableCell>
                        <TableCell className="text-xs font-mono">{item.sku}</TableCell>
                        <TableCell>
                           <div className="flex items-center gap-2 font-bold">
-                             {item.totalStock}
-                             {item.totalStock <= item.minStock && <AlertTriangle className="w-3 h-3 text-amber-500" />}
+                             {item.stock}
+                             {item.stock <= (item.minStock || 10) && <AlertTriangle className="w-3 h-3 text-amber-500" />}
                           </div>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Min: {item.minStock}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Min: {item.minStock || 10}</p>
                        </TableCell>
                        <TableCell>
                           <div className="space-y-1">
-                             {item.marketplaces.map((mp, i) => (
+                             {(item.marketplaces || []).map((mp: string, i: number) => (
                                 <div key={i} className="flex items-center gap-2 text-xs">
                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                   <span className="text-muted-foreground w-16">{mp.name}:</span>
-                                   <span className="font-semibold">{mp.stock}</span>
+                                   <span className="text-muted-foreground">{mp}</span>
                                 </div>
                              ))}
                           </div>
                        </TableCell>
                        <TableCell>
-                          {item.totalStock === 0 ? (
+                          {item.stock === 0 ? (
                              <Badge variant="destructive" className="border-none">Stok Yok</Badge>
-                          ) : item.totalStock <= item.minStock ? (
+                          ) : item.stock <= (item.minStock || 10) ? (
                              <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-none">Kritik Seviye</Badge>
                           ) : (
                              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-none">Yeterli</Badge>
@@ -165,7 +192,7 @@ export const Inventory = () => {
                        </TableCell>
                        <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                             <Input type="number" defaultValue={item.totalStock} className="w-16 h-8 text-center" />
+                             <Input type="number" defaultValue={item.stock} className="w-16 h-8 text-center" />
                              <Button size="icon" variant="ghost" className="h-8 w-8 text-primary shadow-sm border"><Save className="w-4 h-4" /></Button>
                           </div>
                        </TableCell>
@@ -175,6 +202,7 @@ export const Inventory = () => {
            </Table>
         </CardContent>
       </Card>
+
 
       <div className="grid gap-6 md:grid-cols-2">
          <Card>

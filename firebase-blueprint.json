@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "Marketplace": {
+      "title": "Marketplace",
+      "description": "Store integration settings and status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["trendyol", "woocommerce"] },
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["connected", "disconnected"] },
+        "lastSync": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "ordersToday": { "type": "number" },
+        "productsSynced": { "type": "number" },
+        "apiUrl": { "type": "string" },
+        "apiKey": { "type": "string" },
+        "apiSecret": { "type": "string" },
+        "supplierId": { "type": "string" }
+      },
+      "required": ["id", "type", "name", "status"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product information synced across marketplaces",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "price": { "type": "number" },
+        "stock": { "type": "number" },
+        "status": { "type": "string" },
+        "category": { "type": "string" },
+        "image": { "type": "string" },
+        "brand": { "type": "string" },
+        "marketplaces": { "type": "array", "items": { "type": "string" } },
+        "platformId": { "type": "string" },
+        "platformType": { "type": "string" }
+      },
+      "required": ["name", "price", "stock"]
+    }
+  },
+  "firestore": {
+    "/marketplaces/{marketplaceId}": {
+      "schema": "Marketplace",
+      "description": "Collection of marketplace integrations"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of products"
+    }
+  }
+}
